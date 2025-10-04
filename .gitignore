@@ -1,0 +1,30 @@
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Env & keys (VERY IMPORTANT)
+*.env
+*.env.*
+.env
+.env.*
+app/.env
+server/.env
+app/.env.local
+server/.env.local
+*.secret
+*.key
+
+# Misc
+*.zip

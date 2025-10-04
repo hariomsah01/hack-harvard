@@ -1,0 +1,8 @@
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  background-color: #0f1015;
+  color: #e6e6ea;
+}
+a { color: #7bd1ff; }
