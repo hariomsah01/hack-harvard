@@ -25,17 +25,17 @@ async function reverseGeocode(lat, lng) {
   const addr = data.address || {};
   const countryCode = addr.country_code?.toLowerCase();
   const country = addr.country;
-  const city = addr.city || addr.town || addr.village || addr.hamlet || addr.municipality || addr.state_district || addr.state;
-  return { country, countryCode, city };
+  const state = addr.state || addr.town || addr.village || addr.hamlet || addr.municipality || addr.state_district || addr.state;
+  return { country, countryCode, state };
 }
 
 const SERVER_URL = "http://localhost:5174";
 
-async function suggestSongsViaClaude({ city, country, lat, lng, limit = 15 }) {
+async function suggestSongsViaClaude({ state, country, lat, lng, limit = 15 }) {
   const resp = await fetch(`${SERVER_URL}/api/suggest`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ city, country, lat, lng, limit })
+    body: JSON.stringify({ state, country, lat, lng, limit })
   });
   if (!resp.ok) throw new Error("Claude suggest failed");
   const data = await resp.json();
@@ -109,7 +109,7 @@ export default function App() {
         setPlace(info);
 
         const suggestions = await suggestSongsViaClaude({
-          city: info.city,
+          state: info.state,
           country: info.country,
           lat: picked.lat,
           lng: picked.lng,
@@ -119,7 +119,7 @@ export default function App() {
         const resolved = await resolveOnLastFm(suggestions);
         const withPreviews = await addPreviewsViaItunes(resolved, info.countryCode);
         setTracks(withPreviews);
-        setSource("claude + lastfm + itunes");
+        //setSource("claude + lastfm + itunes");
       } catch (e) {
         setErr(e.message || "Something went wrong");
         setTracks([]);
@@ -146,7 +146,7 @@ export default function App() {
               <Popup>
                 {place?.country ? (
                   <div>
-                    <div><b>{place.city || "Unknown city"}</b></div>
+                    <div><b>{place.state || "Unknown state"}</b></div>
                     <div>{place.country} ({place.countryCode?.toUpperCase()})</div>
                     <div style={{ fontSize: 12, marginTop: 4 }}>{picked.lat.toFixed(4)}, {picked.lng.toFixed(4)}</div>
                   </div>
@@ -166,7 +166,7 @@ export default function App() {
 
         {place && (
           <div style={{ marginBottom: 8, fontSize: 14 }}>
-            <div>City: <b>{place.city || "N/A"}</b></div>
+            <div>State: <b>{place.state || "N/A"}</b></div>
             <div>Country: <b>{place.country}</b> ({place.countryCode?.toUpperCase()})</div>
             {source && <div style={{ opacity: 0.8 }}>Source: {source}</div>}
           </div>

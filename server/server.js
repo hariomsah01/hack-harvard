@@ -69,7 +69,7 @@ async function pickAvailableModel() {
   throw new Error("No Anthropic models available to this workspace");
 }
 
-async function claudeSuggest({ city, country, lat, lng, limit }) {
+async function claudeSuggest({ state, country, lat, lng, limit }) {
   if (!ANTHROPIC_API_KEY) {
     throw new Error("Missing ANTHROPIC_API_KEY in server/.env");
   }
@@ -91,7 +91,7 @@ Return STRICT JSON ONLY, matching exactly:
 }
 
 Location:
-- City: ${city || "N/A"}
+- State: ${state || "N/A"}
 - Country: ${country || "N/A"}
 - Lat/Lng: ${lat}, ${lng}
 `;
@@ -159,8 +159,8 @@ app.get("/api/models", async (_req, res) => {
 // 1) Ask Claude for culturally relevant songs for a place
 app.post("/api/suggest", async (req, res) => {
   try {
-    const { city, country, lat, lng, limit = 15 } = req.body || {};
-    const songs = await claudeSuggest({ city, country, lat, lng, limit });
+    const { state, country, lat, lng, limit = 15 } = req.body || {};
+    const songs = await claudeSuggest({ state, country, lat, lng, limit });
     res.json({ songs });
   } catch (e) {
     console.error("Suggest endpoint error:", e);
