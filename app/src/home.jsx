@@ -510,7 +510,7 @@ export default function Home() {
         <nav style={{ display: "flex", alignItems: "center", gap: 28 }}>
           
           <Link
-            to="/discover"
+            to="/explore"
             style={{ textDecoration: "none", color: "#0e0e12" }}
           >
             Explore

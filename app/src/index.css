@@ -6,3 +6,6 @@ html, body, #root {
   color: #e6e6ea;
 }
 a { color: #7bd1ff; }
+
+/* Leaflet default styles */
+@import "leaflet/dist/leaflet.css";

@@ -81,6 +81,20 @@ async function addPreviewsViaItunes(tracks, countryCode = "us") {
   return out;
 }
 
+
+// NEW: ask your server/Claude for cultural info given coords + place
+async function fetchGeoMusicInfo({ lat, lng, state, country }) {
+  const resp = await fetch(`${SERVER_URL}/api/geo-music`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lat, lng, state, country }),
+  });
+  if (!resp.ok) throw new Error("geo-music failed");
+  // Expected shape:
+  // { ok:true, summary, genres[], instruments[], artists[], topSongs[]? }
+  return resp.json();
+}
+
 function ClickCapture({ onPick }) {
   useMapEvents({
     click(e) {
@@ -91,6 +105,22 @@ function ClickCapture({ onPick }) {
   return null;
 }
 
+const Chip = ({ children }) => (
+  <span style={{
+    display: "inline-block",
+    padding: "6px 10px",
+    borderRadius: 999,
+    background: "#f2ecff",
+    color: "#6d28d9",
+    fontSize: 12,
+    fontWeight: 700,
+    margin: "4px 6px 0 0",
+    border: "1px solid #e8dbff",
+  }}>
+    {children}
+  </span>
+);
+
 export default function App() {
   const [picked, setPicked] = useState(null);
   const [place, setPlace] = useState(null);
@@ -98,37 +128,58 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [source, setSource] = useState("");
+  const [info, setInfo] = useState(null);     // NEW: AI overview payload
+  const [tab, setTab] = useState("overview"); // NEW: "overview" | "songs"
 
   useEffect(() => {
-    const run = async () => {
-      if (!picked) return;
-      setErr("");
-      setLoading(true);
-      try {
-        const info = await reverseGeocode(picked.lat, picked.lng);
-        setPlace(info);
+  const run = async () => {
+    if (!picked) return;
+    setErr("");
+    setLoading(true);
+    setInfo(null);
+    try {
+      // reverse geocode
+      const infoPlace = await reverseGeocode(picked.lat, picked.lng);
+      setPlace(infoPlace);
 
-        const suggestions = await suggestSongsViaClaude({
-          state: info.state,
-          country: info.country,
+      // AI overview (cultural context etc.)
+      try {
+        const meta = await fetchGeoMusicInfo({
           lat: picked.lat,
           lng: picked.lng,
-          limit: 15,
+          state: infoPlace.state,
+          country: infoPlace.country,
         });
-
-        const resolved = await resolveOnLastFm(suggestions);
-        const withPreviews = await addPreviewsViaItunes(resolved, info.countryCode);
-        setTracks(withPreviews);
-        //setSource("claude + lastfm + itunes");
+        if (meta?.ok) setInfo(meta);
       } catch (e) {
-        setErr(e.message || "Something went wrong");
-        setTracks([]);
-      } finally {
-        setLoading(false);
+        // silent if AI endpoint returns nothing
+        setInfo(null);
       }
-    };
-    run();
-  }, [picked]);
+
+      // songs (your existing flow)
+      const suggestions = await suggestSongsViaClaude({
+        state: infoPlace.state,
+        country: infoPlace.country,
+        lat: picked.lat,
+        lng: picked.lng,
+        limit: 15,
+      });
+
+      const resolved = await resolveOnLastFm(suggestions);
+      const withPreviews = await addPreviewsViaItunes(resolved, infoPlace.countryCode);
+      setTracks(withPreviews);
+      // setSource("claude + lastfm + itunes");
+    } catch (e) {
+      setErr(e.message || "Something went wrong");
+      setTracks([]);
+      setInfo(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+  run();
+}, [picked]);
+
 
   const center = useMemo(() => (picked ? [picked.lat, picked.lng] : [20, 0]), [picked]);
 
