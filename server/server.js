@@ -212,7 +212,102 @@ app.post("/api/resolve-lastfm", async (req, res) => {
 });
 
 // -----------------------------------------------------------------------
+app.post("/api/roast-quest", express.json(), async (req, res) => {
+  try {
+    const { userInput, challenge } = req.body || {};
+    const anthKey = process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_APIKEY || process.env.ANTHROPIC_KEY;
+    if (!anthKey) {
+      return res.status(200).json({
+        ok: true,
+        roast:
+          "No AI today? Then here's a manual roast: your vibe screams lo-fi, but your soul clearly wants Balkan brass. Touch grass and press play. 💅",
+      });
+    }
+
+    const prompt = `
+You are DJ Claude: a sarcastic, playful music host.
+User tried a mini challenge: "${challenge}".
+Their answer: "${userInput || "(no answer)"}".
+Respond with one short, hilarious roast (1–2 sentences max) tied to music/culture. Keep it PG-13. Add one emoji.`;
+
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": anthKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20240620",
+        max_tokens: 120,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    }).then((r) => r.json());
+
+    const roast =
+      resp?.content?.[0]?.text?.trim() ||
+      "Your rhythm is buffering. Try again before the beat drops. 🥁";
+
+    res.json({ ok: true, roast });
+  } catch (e) {
+    console.error("roast-quest error", e);
+    res.json({
+      ok: true,
+      roast:
+        "Emergency roast fallback: you picked the musical equivalent of plain toast. Spread some culture on it. 🎶",
+    });
+  }
+});
 
 app.listen(PORT, () =>
   console.log(`GeoMusic server running on http://localhost:${PORT}`)
 );
+
+// === Roast Quest (Claude) ===
+app.post("/api/roast-quest", express.json(), async (req, res) => {
+  try {
+    const { userInput } = req.body || {};
+    const anthKey =
+      process.env.ANTHROPIC_API_KEY ||
+      process.env.ANTHROPIC_APIKEY ||
+      process.env.ANTHROPIC_KEY;
+
+    if (!anthKey) {
+      // No fallback content per your request—return not ok so client stays quiet.
+      return res.status(500).json({ ok: false, error: "Missing Anthropic key" });
+    }
+
+    const prompt = `
+You are DJ Claude: a witty, sarcastic music host. Roast the user's musical taste based on:
+"${userInput || "(no answer)"}".
+One or two short sentences, punchy and PG-13.`;
+
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": anthKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20240620",
+        max_tokens: 120,
+        temperature: 0.9,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    if (!resp.ok) {
+      const t = await resp.text().catch(() => "");
+      return res.status(500).json({ ok: false, error: `Anthropic error: ${t}` });
+    }
+
+    const data = await resp.json();
+    const roast = data?.content?.[0]?.text?.trim() || "";
+    if (!roast) return res.status(500).json({ ok: false, error: "Empty roast" });
+
+    return res.json({ ok: true, roast });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e) });
+  }
+});

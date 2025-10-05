@@ -1,10 +1,445 @@
 import React from "react";
 import { useNavigate, Link } from "react-router-dom";
 
+/* ===================== Emotion Engine (Voice + Emoji) ===================== */
+
+// Pick an emotional roast voice and speak with tone
+// --- EMOTIONAL FEMALE VOICE (no emoji/symbol speech)
+// ---- Voice: deep female, words-only (no emoji or punctuation)
+let __voices = [];
+function loadVoices(cb){const s=window.speechSynthesis;if(!s) return cb?.([]);const go=()=>{const v=s.getVoices()||[];if(v.length){__voices=v;cb?.(v);}else setTimeout(go,150)};if(s.onvoiceschanged!==undefined){s.onvoiceschanged=()=>{__voices=s.getVoices()||[];cb?.(__voices)};}go();}
+loadVoices();
+
+function pickFemaleVoice(){
+  const prefs=[/Google US English Female/i,/Google UK English Female/i,/Samantha/i,/Zira/i,/Jenny/i,/Microsoft .* (Zira|Jenny)/i];
+  for(const re of prefs){const hit=__voices.find(v=>re.test(v.name));if(hit) return hit;}
+  const any=__voices.find(v=>/female/i.test(v.name+v.voiceURI));
+  return any||__voices[0]||null;
+}
+
+function say(text){
+  try{
+    const synth=window.speechSynthesis; if(!synth) return;
+    // keep only letters/numbers/space (unicode-safe)
+    const clean=String(text).normalize("NFKD").replace(/[^\p{L}\p{N}\s]/gu," ").replace(/\s+/g," ").trim();
+    if(!clean) return;
+    synth.cancel();
+    const u=new SpeechSynthesisUtterance(clean);
+    const v=pickFemaleVoice(); if(v) u.voice=v;
+    u.lang="en-US"; u.pitch=0.8; u.rate=0.9; u.volume=1;
+    synth.speak(u);
+  }catch{}
+}
+
+
+
+
+
+
+// lightweight emoji burst (no libs)
+function burstEmojis(container, emojis = ["🎶", "🔥", "💫", "🌍", "😂"]) {
+  if (!container) return;
+  for (let i = 0; i < 15; i++) {
+    const el = document.createElement("div");
+    el.textContent = emojis[i % emojis.length];
+    Object.assign(el.style, {
+      position: "absolute",
+      left: `${50 + (Math.random() * 40 - 20)}%`,
+      top: "50%",
+      transform: "translate(-50%, -50%)",
+      fontSize: `${16 + Math.random() * 18}px`,
+      opacity: "0.9",
+      transition: "transform 900ms ease, opacity 900ms ease",
+      pointerEvents: "none",
+    });
+    container.appendChild(el);
+    requestAnimationFrame(() => {
+      el.style.transform = `translate(-50%, -${120 + Math.random() * 100}px)`;
+      el.style.opacity = "0";
+    });
+    setTimeout(() => container.removeChild(el), 1000);
+  }
+}
+
+// simple, dynamic roast generator (no hardcoded list)
+
+
+/* =========================== Roast Quest Modal =========================== */
+const API_BASE = process.env.REACT_APP_API_BASE || "http://localhost:5174";
+
+/* =========================== AI Quiz Roast Modal =========================== */
+
+
+// function QuizRoastModal({ open, onClose, navigate }) {
+//   const [stage, setStage] = React.useState("intro"); // intro | loading | question | result
+//   const [question, setQuestion] = React.useState(null); // {question, choices[4], correctIndex}
+//   const [count, setCount] = React.useState(5);
+//   const [verdict, setVerdict] = React.useState("");
+//   const [roast, setRoast] = React.useState("");
+//   const containerRef = React.useRef(null);
+
+//   React.useEffect(() => {
+//     if (!open) {
+//       setStage("intro"); setQuestion(null); setCount(5); setVerdict(""); setRoast("");
+//     }
+//   }, [open]);
+
+//   React.useEffect(() => {
+//     if (stage !== "question") return;
+//     setCount(5);
+//     const t = setInterval(() => {
+//       setCount((c) => {
+//         if (c <= 1) { clearInterval(t); submitAnswer(-1); }
+//         return c - 1;
+//       });
+//     }, 1000);
+//     return () => clearInterval(t);
+//   }, [stage]);
+
+//   async function fetchQuestion() {
+//     try{
+//       setStage("loading");
+//       const r = await fetch(`${API_BASE}/api/quiz-next`, { method:"POST" });
+//       if(!r.ok) return; // silent (no fallback)
+//       const data = await r.json().catch(()=>null);
+//       if(!data || typeof data.question!=="string" || !Array.isArray(data.choices) || typeof data.correctIndex!=="number") return;
+//       setQuestion(data);
+//       setStage("question");
+//     }catch{}
+//   }
+
+//   async function submitAnswer(userIndex){
+//     if(!question) return;
+//     setStage("result");
+//     try{
+//       const r = await fetch(`${API_BASE}/api/quiz-roast`, {
+//         method:"POST",
+//         headers:{ "content-type":"application/json" },
+//         body: JSON.stringify({
+//           question: question.question,
+//           choices: question.choices,
+//           correctIndex: question.correctIndex,
+//           userIndex
+//         })
+//       });
+//       if(!r.ok) return; // silent
+//       const data = await r.json().catch(()=>null);
+//       if(!data || typeof data.roast!=="string" || !data.verdict) return;
+//       setVerdict(data.verdict);
+//       setRoast(data.roast.trim());
+//       say(data.roast);
+//     }catch{}
+//   }
+
+//   if(!open) return null;
+
+//   return (
+//     <div
+//       ref={containerRef}
+//       onClick={(e)=>e.target===e.currentTarget && onClose()}
+//       style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",backdropFilter:"blur(4px)",display:"grid",placeItems:"center",zIndex:999}}
+//     >
+//       <div style={{width:"min(760px,92vw)",background:"#0f0f14",color:"#fff",borderRadius:20,boxShadow:"0 30px 80px rgba(0,0,0,.5)",padding:22,border:"1px solid rgba(124,58,237,.35)",position:"relative",overflow:"hidden"}}>
+//         <div style={{position:"absolute",inset:"-40% -20% auto -20%",height:160,background:"radial-gradient(ellipse at center, rgba(124,58,237,.35), rgba(124,58,237,0) 65%)",filter:"blur(18px)"}} />
+//         <div style={{display:"flex",alignItems:"center",gap:10}}>
+//           <span style={{fontSize:20}}>🎧</span><strong>DJ Claude’s Quiz Roast</strong>
+//         </div>
+
+//         {stage==="intro" && (
+//           <div style={{marginTop:18}}>
+//             <p style={{opacity:.9}}>AI writes the question. You answer. Claude roasts.</p>
+//             <button onClick={fetchQuestion} style={ctaStyle}>Start quiz</button>
+//           </div>
+//         )}
+
+//         {stage==="loading" && (
+//           <div style={{marginTop:18,opacity:.8}}>Cooking up a question…</div>
+//         )}
+
+//         {stage==="question" && question && (
+//           <div style={{marginTop:18}}>
+//             <div style={{marginBottom:10,color:"#a78bfa",fontWeight:700}}>Time: {count}s</div>
+//             <h3 style={{margin:"0 0 12px 0"}}>{question.question}</h3>
+//             <div style={{display:"grid",gap:10}}>
+//               {question.choices.map((c,i)=>(
+//                 <button key={i} onClick={()=>submitAnswer(i)} style={{textAlign:"left",borderRadius:12,border:"1px solid #2b2b36",background:"#171721",color:"#fff",padding:"12px 14px",cursor:"pointer"}}>
+//                   {c}
+//                 </button>
+//               ))}
+//             </div>
+//           </div>
+//         )}
+
+//         {stage==="result" && (
+//           <div style={{marginTop:18}}>
+//             {verdict && (
+//               <div style={{
+//                 display:"inline-block",padding:"6px 10px",borderRadius:999,fontSize:12,marginBottom:8,
+//                 background: verdict==="correct" ? "rgba(16,185,129,.12)" : "rgba(239,68,68,.12)",
+//                 border: verdict==="correct" ? "1px solid rgba(16,185,129,.35)" : "1px solid rgba(239,68,68,.35)",
+//                 color: verdict==="correct" ? "#10b981" : "#ef4444"
+//               }}>
+//                 {verdict==="correct" ? "Correct" : "Wrong"}
+//               </div>
+//             )}
+//             <p style={{whiteSpace:"pre-wrap",lineHeight:1.6}}>{roast}</p>
+//             <div style={{marginTop:14,display:"flex",gap:10,flexWrap:"wrap"}}>
+//               <button onClick={fetchQuestion} style={ctaStyle}>Another question</button>
+//               <button onClick={()=>navigate("/discover")} style={ghostBtn}>Close</button>
+//             </div>
+//           </div>
+//         )}
+
+//         <button onClick={onClose} aria-label="close" style={{position:"absolute",right:10,top:10,background:"transparent",border:"none",color:"#bbb",fontSize:22,cursor:"pointer"}}>×</button>
+//       </div>
+//     </div>
+//   );
+// }
+
+function RoastQuestModal({ open, onClose, navigate }) {
+  const [stage, setStage] = React.useState("intro"); // intro | challenge | roast
+  const [input, setInput] = React.useState("");
+  const [roast, setRoast] = React.useState("");
+  const [count, setCount] = React.useState(3);
+  const containerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (!open) {
+      setStage("intro");
+      setInput("");
+      setRoast("");
+      setCount(3);
+    }
+  }, [open]);
+
+  React.useEffect(() => {
+    if (stage !== "challenge") return;
+    setCount(5);
+    const t = setInterval(() => {
+      setCount((c) => {
+        if (c <= 1) {
+          clearInterval(t);
+          submit();
+        }
+        return c - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [stage]);
+
+  // CRA/Webpack env var (not Vite). Create .env (see below).
+
+
+  async function submit() {
+  setStage("roast");
+  try {
+    const r = await fetch(`${API_BASE}/api/roast-quest`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        userInput: input  // no challenge text; Claude decides everything
+      }),
+    });
+
+    if (!r.ok) return;
+    const data = await r.json().catch(() => null);
+    if (!data || !data.ok || typeof data.roast !== "string") return;
+
+    const line = data.roast.trim();
+    if (!line) return;          // <-- was backwards in your screenshot
+
+    setRoast(line);
+    say(line);                   // speaks words only (see say() below)
+    burstEmojis(containerRef.current);
+  } catch {
+    // silent: no fallback by your request
+  }
+}
+
+
+
+
+
+  if (!open) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.35)",
+        backdropFilter: "blur(4px)",
+        display: "grid",
+        placeItems: "center",
+        zIndex: 999,
+      }}
+    >
+      <div
+        style={{
+          width: "min(680px, 92vw)",
+          background: "#0f0f14",
+          color: "white",
+          borderRadius: 20,
+          boxShadow: "0 30px 80px rgba(0,0,0,0.5)",
+          padding: 22,
+          border: "1px solid rgba(124,58,237,0.35)",
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {/* neon top bar */}
+        <div
+          style={{
+            position: "absolute",
+            inset: "-40% -20% auto -20%",
+            height: 160,
+            background:
+              "radial-gradient(ellipse at center, rgba(124,58,237,.35), rgba(124,58,237,0) 65%)",
+            filter: "blur(18px)",
+            pointerEvents: "none",
+          }}
+        />
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 22 }}>🎧</span>
+          <strong>DJ Claude’s Roast Quest</strong>
+        </div>
+
+        {/* emotion bubble */}
+        <div
+          id="emotion-bubble"
+          style={{
+            position: "absolute",
+            right: 20,
+            bottom: 20,
+            fontSize: 30,
+            opacity: 0,
+            transition: "opacity 0.5s ease",
+            pointerEvents: "none",
+          }}
+        >
+          💀
+        </div>
+
+        {stage === "intro" && (
+          <div style={{ marginTop: 16 }}>
+            <p style={{ opacity: 0.9, lineHeight: 1.6 }}>
+              Welcome, traveler. I’m DJ Claude — part time music curator,  full-time roastmaster.
+              Ready to be judged by an AI with rhythm?
+            </p>
+            <button onClick={() => setStage("challenge")} style={ctaStyle}>
+              Let’s Play
+            </button>
+          </div>
+        )}
+
+        {stage === "challenge" && (
+          <div style={{ marginTop: 16 }}>
+            <p style={{ opacity: 0.9 }}>
+              <strong>Quick!</strong> Type a country or a genre you secretly love.
+              You’ve got <span style={{ color: "#a78bfa" }}>{count}</span>…
+            </p>
+            <input
+              autoFocus
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && submit()}
+              placeholder="e.g., Brazil or Lo-fi"
+              style={{
+                width: "100%",
+                marginTop: 10,
+                padding: "12px 14px",
+                borderRadius: 12,
+                border: "1px solid #2b2b36",
+                background: "#171721",
+                color: "white",
+                outline: "none",
+              }}
+            />
+            <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+              <button onClick={submit} style={ctaStyle}>
+                Lock it in
+              </button>
+              <button onClick={onClose} style={ghostBtn}>
+                Nah, I’m scared
+              </button>
+            </div>
+          </div>
+        )}
+
+        {stage === "roast" && (
+          <div style={{ marginTop: 16 }}>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{roast}</p>
+            <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+              <button onClick={() => navigate("/discover")} style={ctaStyle}>
+                Ok I’ll press Play ▶
+              </button>
+              <button
+                onClick={() => {
+                  setInput("");
+                  setRoast("");
+                  setStage("challenge");
+                }}
+                style={ghostBtn}
+              >
+                Roast me again
+              </button>
+            </div>
+          </div>
+        )}
+
+        <button
+          onClick={onClose}
+          aria-label="close"
+          style={{
+            position: "absolute",
+            right: 10,
+            top: 10,
+            background: "transparent",
+            border: "none",
+            color: "#bbb",
+            fontSize: 22,
+            cursor: "pointer",
+          }}
+        >
+          ×
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const ctaStyle = {
+  marginTop: 14,
+  padding: "12px 18px",
+  borderRadius: 9999,
+  border: "none",
+  background: "linear-gradient(180deg, #6d28d9, #8b5cf6)",
+  color: "white",
+  fontWeight: 800,
+  cursor: "pointer",
+  boxShadow: "0 12px 28px rgba(109,40,217,.35)",
+};
+
+const ghostBtn = {
+  marginTop: 14,
+  padding: "12px 18px",
+  borderRadius: 9999,
+  border: "1px solid #2b2b36",
+  background: "transparent",
+  color: "white",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+/* =============================== Home UI =============================== */
+
 export default function Home() {
   const navigate = useNavigate();
+  const [questOpen, setQuestOpen] = React.useState(false);
 
-  // Reusable tiny helpers
   const stripFade = (pos) => ({
     position: "absolute",
     left: 0,
@@ -58,7 +493,7 @@ export default function Home() {
           >
             ♫
           </span>
-        <Link
+          <Link
             to="/"
             style={{
               textDecoration: "none",
@@ -73,18 +508,30 @@ export default function Home() {
 
         {/* Nav */}
         <nav style={{ display: "flex", alignItems: "center", gap: 28 }}>
-          <Link to="/" style={{ textDecoration: "none", color: "#0e0e12" }}>
-            Home
-          </Link>
+          
           <Link
             to="/discover"
             style={{ textDecoration: "none", color: "#0e0e12" }}
           >
             Explore
           </Link>
-          <a href="#features" style={{ textDecoration: "none", color: "#0e0e12" }}>
-            Play
-          </a>
+
+          {/* Play opens Roast Quest */}
+          <button
+  onClick={() => setQuestOpen(true)}
+  style={{
+    background: "transparent",
+    border: "none",
+    color: "#0e0e12",
+    cursor: "pointer",
+    fontSize: 16,
+    padding: 0,
+  }}
+>
+  Play
+</button>
+
+
         </nav>
       </header>
 
@@ -97,7 +544,7 @@ export default function Home() {
           overflow: "hidden",
         }}
       >
-        {/* soft wave glows behind headline */}
+        {/* soft wave glows */}
         <div
           style={{
             position: "absolute",
@@ -160,11 +607,16 @@ export default function Home() {
           play, and start your journey.
         </p>
 
-        {/* Ultra-reliable interactive CTA (no overlays, fully clickable) */}
+        {/* CTA */}
         <button
           onClick={() => navigate("/discover")}
-          onMouseEnter={(e) => (e.currentTarget.style.transform = "translateY(-2px) scale(1.02)")}
-          onMouseLeave={(e) => (e.currentTarget.style.transform = "translateY(0) scale(1)")}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.transform =
+              "translateY(-2px) scale(1.02)")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.transform = "translateY(0) scale(1)")
+          }
           onFocus={(e) =>
             (e.currentTarget.style.boxShadow =
               "0 0 0 4px rgba(124,58,237,.25), 0 18px 40px rgba(109,40,217,.38)")
@@ -208,7 +660,6 @@ export default function Home() {
             ▶
           </span>
           Discover More
-          {/* cursor-follow glow (purely decorative, no pointer trap) */}
           <span
             aria-hidden
             style={{
@@ -382,6 +833,13 @@ export default function Home() {
           Made at <strong>Hack Harvard</strong> with 💜
         </p>
       </footer>
+
+      {/* Mount the modal */}
+      <RoastQuestModal
+        open={questOpen}
+        onClose={() => setQuestOpen(false)}
+        navigate={navigate}
+      />
     </main>
   );
 }
