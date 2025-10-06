@@ -51,7 +51,7 @@ GeoBeats is a web app that lets you click on a world map and instantly explore a
 6. **Frontend renders** the content visually (with styles, chips, cards)  
 
 This design allows the narrative to evolve: you can later add filters by decade, mood, or user contributions without rearchitecting the base.
-
+Built at Hack_Harvard
 ---
 
 ## 🧪 Local Development
